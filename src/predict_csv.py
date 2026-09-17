@@ -9,7 +9,7 @@ from pathlib import Path
 # ==========================================
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-MODEL_PATH = PROJECT_ROOT / "models" / "xgboost_ids.joblib"
+MODEL_PATH = PROJECT_ROOT / "models" / "xgboost_ids_final.joblib"
 
 
 # ==========================================
@@ -39,8 +39,10 @@ ids_pipeline = joblib.load(MODEL_PATH)
 preprocessor = ids_pipeline["preprocessor"]
 model = ids_pipeline["model"]
 feature_columns = ids_pipeline["feature_columns"]
+threshold = ids_pipeline["threshold"]
 
 print("IDS Model 載入完成！")
+print(f"Classification Threshold : {threshold:.2f}")
 
 
 # ==========================================
@@ -91,9 +93,6 @@ X_processed = preprocessor.transform(X_input)
 attack_probabilities = model.predict_proba(
     X_processed
 )[:, 1]
-
-# 目前維持 baseline threshold
-threshold = 0.5
 
 predictions = (
     attack_probabilities >= threshold

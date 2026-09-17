@@ -45,3 +45,7 @@ Thumbs.db
 # =========================
 .env
 .env.*
+
+
+# Private Study / Interview Notes
+private_notes/
