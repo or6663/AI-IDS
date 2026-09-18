@@ -8,7 +8,7 @@
 - `0`：Normal（正常流量）
 - `1`：Attack（攻擊流量）
 
-目前已完成 Logistic Regression、Random Forest 與 XGBoost 三種模型的訓練與比較，並建立 Train / Validation / Test 評估流程。AI-IDS v1.0 使用 XGBoost 作為 Final Model，Threshold 由 Validation Set 在「Attack Recall ≥ 98%」的實驗約束下選定為 0.45；模型可保存及重新載入，並對符合 UNSW-NB15 Feature Schema 的外部 CSV Network Flow 資料進行推論。
+目前已完成 Logistic Regression、Random Forest 與 XGBoost 三種模型的訓練與比較，並建立 Train / Validation / Test 評估流程。AI-IDS v1.0 使用 XGBoost 作為 Final Model，Threshold 由 Validation Set 在「Attack Recall ≥ 98%」的實驗約束下選定為 0.45；模型可保存及重新載入，並已整合至 Streamlit Dashboard，可對符合 UNSW-NB15 42-Feature Schema 的外部 CSV Network Flow 資料進行驗證、推論、警示、視覺化與結果下載。
 
 ---
 
@@ -492,6 +492,105 @@ Attack      : 3
 
 ---
 
+
+# Streamlit IDS Dashboard
+
+Day 4 將 Day 3 已 Freeze 的 Final XGBoost Model 整合至 Streamlit Web Dashboard。
+
+Dashboard 啟動後會直接載入：
+
+```text
+models/xgboost_ids_final.joblib
+```
+
+並從 Model Bundle 取得：
+
+```text
+Frozen Preprocessor
+Frozen XGBoost Model
+42 Feature Column Names
+Classification Threshold = 0.45
+```
+
+因此 Dashboard 不會重新訓練模型，也不另外 hard-code Threshold。
+
+目前 Dashboard pipeline：
+
+```text
+Network Flow CSV
+        ↓
+42-Feature Schema Validation
+        ↓
+Frozen Preprocessor
+        ↓
+Frozen XGBoost Model
+        ↓
+Attack Probability
+        ↓
+Frozen Threshold = 0.45
+        ↓
+NORMAL / ATTACK
+        ↓
+Summary / Alert / Visualization / Result Export
+```
+
+## Dashboard Features
+
+目前已完成：
+
+- CSV Network Flow Upload
+- 42-Feature Schema Validation
+- Frozen Model Inference
+- Per-flow Attack Probability
+- NORMAL / ATTACK Classification
+- Total / Normal / Attack Flow Summary
+- Attack Ratio
+- Suspicious Flow Security Alert
+- Normal / Attack Detection Distribution
+- Attack Probability Overview
+- Threshold = 0.45 Visualization
+- Detection Results Table
+- Detection Result CSV Download
+
+使用四筆 `sample_input.csv` 測試：
+
+| Flow | Attack Probability | Prediction |
+|---:|---:|---|
+| 1 | 0.8939 | ATTACK |
+| 2 | 0.0010 | NORMAL |
+| 3 | 0.9968 | ATTACK |
+| 4 | 0.4755 | ATTACK |
+
+Summary：
+
+```text
+Total Flows  : 4
+Normal Flows : 1
+Attack Flows : 3
+Attack Ratio : 75.0%
+```
+
+Dashboard 結果與 `src/predict_csv.py` 的 Frozen Model inference 結果一致。
+
+## Input Validation
+
+Dashboard 會先檢查所有 42 個必要 features。
+
+Day 4 另外使用缺少 `dur` 的 41-feature CSV 測試，Dashboard 成功阻擋 inference 並顯示：
+
+```text
+Invalid CSV: 1 required feature(s) are missing.
+
+Missing features:
+["dur"]
+```
+
+因此錯誤 schema 不會直接送入 Preprocessor 或 XGBoost Model。
+
+> Dashboard 目前分析的是已完成 feature extraction 的 Network Flow CSV，尚未直接從 Network Interface 擷取 raw packets，因此目前仍屬於 Machine Learning-Based Network Intrusion Detection Prototype，而不是完整的 real-time packet-based IDS。
+
+---
+
 # Project Structure
 
 ```text
@@ -505,7 +604,8 @@ AI-IDS/
 ├── docs/
 │   ├── day01.md
 │   ├── day02.md
-│   └── day03.md
+│   ├── day03.md
+│   └── day04.md
 │
 ├── models/
 │   ├── xgboost_ids.joblib
@@ -528,6 +628,7 @@ AI-IDS/
 │   ├── predict_csv.py
 │   └── create_sample_input.py
 │
+├── app.py
 ├── .gitignore
 ├── README.md
 └── requirements.txt
@@ -553,6 +654,8 @@ numpy
 scikit-learn
 matplotlib
 xgboost
+streamlit
+altair
 ```
 
 ---
@@ -601,6 +704,14 @@ python src/predict.py
 python src/predict_csv.py data/sample_input.csv
 ```
 
+## Streamlit IDS Dashboard
+
+```bash
+streamlit run app.py
+```
+
+啟動後可在瀏覽器開啟 Streamlit 提供的 Local URL，並上傳符合 42-Feature Schema 的 Network Flow CSV 進行分析。
+
 ---
 
 # 目前限制
@@ -624,14 +735,14 @@ Real-time Network Monitoring
 
 # Future Work
 
-AI-IDS v1.0 的 Model 已 Freeze。後續 v1.0 工作集中於系統展示與介面：
+AI-IDS v1.0 的 Model 已 Freeze，且 Day 4 已完成 Streamlit Dashboard、CSV Upload、Detection UI、Alert 與基本 Monitoring Visualization。
 
-- IDS Dashboard
-- CSV Upload / Detection UI
-- Alert / Monitoring Presentation
+後續 v1.0 工作集中於：
+
 - Architecture Diagram
 - Demo 與 Documentation
 - Near-real-time / Flow Replay 可行性研究
+- Packet / Flow Collection 與 42-Feature Extraction 可行性分析
 
 模型層面的後續改善留待未來版本：
 
@@ -669,7 +780,12 @@ AI-IDS v1.0 的 Model 已 Freeze。後續 v1.0 工作集中於系統展示與介
 - [x] Final Model Persistence
 - [x] External CSV Inference
 - [x] AI-IDS v1.0 Model Freeze
-- [ ] IDS Dashboard
+- [x] Streamlit IDS Dashboard
+- [x] CSV Upload / 42-Feature Schema Validation
+- [x] Dashboard Frozen Model Inference
+- [x] Detection Summary / Security Alert
+- [x] Detection Distribution / Attack Probability Visualization
+- [x] Detection Result CSV Export
 - [ ] Architecture / Demo Presentation
 - [ ] Near-real-time / Flow Replay Investigation
 - [ ] Real-time Feature Extraction
